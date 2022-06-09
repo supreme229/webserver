@@ -10,6 +10,9 @@
 #include <errno.h>
 #include <chrono>
 #include <fcntl.h>
+#include <netdb.h>
+
+#include "utils.h"
 
 using namespace std;
 
@@ -22,16 +25,19 @@ class Webserver
 public:
     Webserver(int port, string dir);
     void setup();
-    
+
 private:
     int port;
     string dir;
+    string separator = "\r\n\r\n";
+    int counter = 0;
 
 public:
     void serverLoop();
-    ssize_t receivePacket(int fd, u_int8_t *buffer, size_t buffer_size, unsigned int timeout, char separator);
 
-
+private:
+    ssize_t receivePacket(int fd, u_int8_t *buffer, size_t buffer_size, unsigned int timeout);
+    HTTPHeaders readHeaders(char* recv_buffer);
 
 private:
     int sockfd;
