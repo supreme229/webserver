@@ -15,6 +15,8 @@
 #include <netdb.h>
 #include <vector>
 #include <sstream>
+#include <limits.h>
+#include <regex>
 
 #define ERROR(str) { fprintf(stderr, "%s: %s\n", str, strerror(errno)); exit(EXIT_FAILURE); }
 
@@ -24,12 +26,25 @@ struct HTTPHeaders{
     string address;
     string host;
     string connection;
+    string proto;
+};
+
+enum ResponseType{
+    ERROR_404,
+    MOVED_PERMANENTLY_301,
+    OK_200,
+    FORBIDDEN_403,
+    NOT_IMPLEMENTED_501
 };
 
 bool readFileIntoString(const string& path, vector<char> &message, string type);
 
 int getFileSize(const string& path);
 
-vector<char> packetBuilder(HTTPHeaders header);
+bool fileExists(string path);
 
 string getType(string address);
+
+ResponseType getResponseType(HTTPHeaders header);
+
+

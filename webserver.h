@@ -8,9 +8,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <chrono>
 #include <fcntl.h>
 #include <netdb.h>
+#include <chrono>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "utils.h"
 
@@ -18,7 +21,6 @@ using namespace std;
 
 #define BUFFER_SIZE 10000000
 #define ERROR(str) { fprintf(stderr, "%s: %s\n", str, strerror(errno)); exit(EXIT_FAILURE); }
-
 
 class Webserver
 {
@@ -31,13 +33,15 @@ private:
     string dir;
     string separator = "\r\n\r\n";
     int counter = 0;
-
+    int connected_sockfd;
 public:
     void serverLoop();
 
 private:
     ssize_t receivePacket(int fd, u_int8_t *buffer, size_t buffer_size, unsigned int timeout);
     HTTPHeaders readHeaders(char* recv_buffer);
+    vector<char> packetBuilder(HTTPHeaders header);
+    bool timeout = true;
 
 private:
     int sockfd;

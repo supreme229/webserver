@@ -1,3 +1,5 @@
 *.o
 webserver
 webpages
+request.txt
+.clang-format

@@ -1,5 +1,5 @@
 CPP = g++
-FLAGS = -std=gnu++17 -Wall -Wextra
+FLAGS = -std=c++17 -Wall -Wextra
 
 webserver: Makefile main.o webserver.o utils.o
 		$(CPP) $(FLAGS) -o webserver main.o webserver.o utils.o
