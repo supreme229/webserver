@@ -1,8 +1,7 @@
 #include "webserver.h"
 
-u_int8_t recv_buffer[BUFFER_SIZE + 1];
 
-Webserver::Webserver(int port, string dir) : port(port), dir(dir) {}
+Webserver::Webserver(int port, string dir) : port(port), dir(dir), separator("\r\n\r\n"), separator_counter(0), timeout(true),  recv_buffer(new uint8_t[BUFFER_SIZE + 1]) {}
 
 void Webserver::setup() {
     socketSetup();
@@ -61,6 +60,57 @@ HTTPHeaders Webserver::readHeaders(char* recv_buffer) {
     return header;
 }
 
+ResponseType Webserver::getResponseType(HTTPHeaders header) {
+    if (!regex_match (header.proto, regex("GET \\/.* HTTP\\/1\\.1$") )){
+        return NOT_IMPLEMENTED_501;
+    }
+    
+    if (header.address == "/") {
+        return MOVED_PERMANENTLY_301;
+    }
+
+    string not_resolved = "./" + dir + "/" + header.host + header.address;
+    char result[255] = "";
+    realpath(not_resolved.c_str(), result);
+
+    string file_path = (string)result;
+
+    if (file_path.find("/" + dir + "/" + header.host) == string::npos){
+        return FORBIDDEN_403;
+    }
+
+    if (fileExists(file_path)) {
+        return OK_200;
+
+    } else {
+        return ERROR_404;
+    }
+
+    return NOT_IMPLEMENTED_501;
+}
+
+string Webserver::getType(string address) {
+    string type = address.substr(address.find_last_of(".") + 1);
+
+    if (type == "css" || type == "txt" || type == "html") {
+        return "text/" + type + type == "html" ? ";charset=utf-8" : "";
+    }
+
+    if (type == "jpeg" || type == "jpg") {
+        return "image/jpeg";
+    }
+
+    if (type == "png") {
+        return "image/png";
+    }
+
+    if (type == "pdf") {
+        return "application/pdf";
+    }
+
+    return "application/octet-stream";
+}
+
 vector<char> Webserver::packetBuilder(HTTPHeaders header) {
 
     vector<char> packet;
@@ -69,7 +119,7 @@ vector<char> Webserver::packetBuilder(HTTPHeaders header) {
     ResponseType response = getResponseType(header);
     string content_type = getType(header.address);
 
-    string not_resolved = "./webpages/" + header.host + header.address;
+    string not_resolved = "./" + dir + "/" + header.host + header.address;
     char result[255] = "";
     realpath(not_resolved.c_str(), result);
 
@@ -84,7 +134,7 @@ vector<char> Webserver::packetBuilder(HTTPHeaders header) {
     }
     case MOVED_PERMANENTLY_301:
         response_str = "HTTP/1.1 301 Moved Permanently\nLocation: http://" +
-                       header.host + ":8888" + "/index.html\n\n";
+                       header.host + ":" + to_string(port) + "/index.html\n\n";
         break;
     case ERROR_404: {
         string error_message =
@@ -128,46 +178,9 @@ vector<char> Webserver::packetBuilder(HTTPHeaders header) {
     return packet;
 }
 
-void Webserver::serverLoop() {
-    if (listen(sockfd, 64) < 0)
-        ERROR("listen error");
 
-    for (;;) {
-        if (timeout) {
-            connected_sockfd = accept(sockfd, NULL, NULL);
-        }
 
-        if (connected_sockfd < 0)
-            ERROR("accept error")
-
-        ssize_t bytes_read =
-            receivePacket(connected_sockfd, recv_buffer, BUFFER_SIZE, 2);
-
-        if (bytes_read == -2) {
-            timeout = true;
-        } else if (bytes_read == 0) {
-            timeout = true;
-        } else {
-            timeout = false;
-            recv_buffer[bytes_read] = '\0';
-            HTTPHeaders header = readHeaders((char*)recv_buffer);
-
-            vector<char> packet = packetBuilder(header);
-
-            if (write(connected_sockfd, &packet[0], packet.size()) < 0) {
-                ERROR("write error");
-            }
-        }
-
-        if (timeout) {
-            if (close(connected_sockfd) < 0)
-                ERROR("close error");
-        }
-    }
-}
-
-ssize_t Webserver::receivePacket(int fd, u_int8_t* buffer, size_t buffer_size,
-                                 unsigned int timeout) {
+ssize_t Webserver::receivePacket(int fd, size_t buffer_size) {
     struct timeval tv;
     tv.tv_sec = 0;
     tv.tv_usec = 500000;
@@ -194,13 +207,13 @@ ssize_t Webserver::receivePacket(int fd, u_int8_t* buffer, size_t buffer_size,
             return 0;
 
         for (int i = 0; i < bytes_read; i++) {
-            if (recv_buffer[total_bytes_read + i] == separator[counter]) {
-                if (counter == 3) {
+            if (recv_buffer[total_bytes_read + i] == separator[separator_counter]) {
+                if (separator_counter == 3) {
                     separator_found = true;
                 }
-                counter++;
+                separator_counter++;
             } else {
-                counter = 0;
+                separator_counter = 0;
             }
         }
 
@@ -211,4 +224,42 @@ ssize_t Webserver::receivePacket(int fd, u_int8_t* buffer, size_t buffer_size,
     }
 
     return 0;
+}
+
+void Webserver::serverLoop() {
+    if (listen(sockfd, 64) < 0)
+        ERROR("listen error");
+
+    for (;;) {
+        if (timeout) {
+            connected_sockfd = accept(sockfd, NULL, NULL);
+        }
+
+        if (connected_sockfd < 0)
+            ERROR("accept error")
+
+        ssize_t bytes_read =
+            receivePacket(connected_sockfd, BUFFER_SIZE);
+
+        if (bytes_read == -2) {
+            timeout = true;
+        } else if (bytes_read == 0) {
+            timeout = true;
+        } else {
+            timeout = false;
+            recv_buffer[bytes_read] = '\0';
+            HTTPHeaders header = readHeaders((char*)recv_buffer);
+
+            vector<char> packet = packetBuilder(header);
+
+            if (write(connected_sockfd, &packet[0], packet.size()) < 0) {
+                ERROR("write error");
+            }
+        }
+
+        if (timeout) {
+            if (close(connected_sockfd) < 0)
+                ERROR("close error");
+        }
+    }
 }

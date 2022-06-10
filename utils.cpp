@@ -1,5 +1,36 @@
 #include "utils.h"
 
+bool inputCorrect(int argc, char*argv[]){
+    if(argc != 3){
+        printf("usage: <port> <directory>\n");
+        return false;
+    }
+
+    try{
+        int port = stoi(argv[1]);
+        if(port < 0 || port > 65535){
+            printf("program arguments error: wrong port value\n");
+            return false;
+        }
+    }
+    catch(invalid_argument const &ex){
+        printf("program arguments error: wrong port format\n");
+        return false;
+    }
+
+    const string pathString = "./" + (string)(argv[2]);
+    const filesystem::path path(pathString); 
+
+    error_code ec;
+    if (!filesystem::is_directory(path, ec))
+    { 
+        printf("program arguments error: not a directory\n");
+        return false;
+    }
+
+    return true;
+}
+
 bool readFileIntoString(const string& path, vector<char>& message,
                         string type) {
     ifstream input_file;
@@ -46,55 +77,4 @@ int getFileSize(const string& path) {
     ifstream input_file(path, ios::binary);
     input_file.seekg(0, ios::end);
     return input_file.tellg();
-}
-
-ResponseType getResponseType(HTTPHeaders header) {
-    if (!regex_match (header.proto, regex("GET \\/.* HTTP\\/1\\.1$") )){
-        return NOT_IMPLEMENTED_501;
-    }
-    
-    if (header.address == "/") {
-        return MOVED_PERMANENTLY_301;
-    }
-
-    string not_resolved = "./webpages/" + header.host + header.address;
-    char result[255] = "";
-    realpath(not_resolved.c_str(), result);
-
-    string file_path = (string)result;
-
-    if (file_path.find("/webpages/" + header.host) == string::npos){
-        return FORBIDDEN_403;
-    }
-
-    if (fileExists(file_path)) {
-        return OK_200;
-
-    } else {
-        return ERROR_404;
-    }
-
-    return NOT_IMPLEMENTED_501;
-}
-
-string getType(string address) {
-    string type = address.substr(address.find_last_of(".") + 1);
-
-    if (type == "css" || type == "txt" || type == "html") {
-        return "text/" + type;
-    }
-
-    if (type == "jpeg" || type == "jpg") {
-        return "image/jpeg";
-    }
-
-    if (type == "png") {
-        return "image/png";
-    }
-
-    if (type == "pdf") {
-        return "application/pdf";
-    }
-
-    return "application/octet-stream";
 }

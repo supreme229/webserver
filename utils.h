@@ -17,6 +17,7 @@
 #include <sstream>
 #include <limits.h>
 #include <regex>
+#include <filesystem>
 
 #define ERROR(str) { fprintf(stderr, "%s: %s\n", str, strerror(errno)); exit(EXIT_FAILURE); }
 
@@ -37,14 +38,15 @@ enum ResponseType{
     NOT_IMPLEMENTED_501
 };
 
+bool inputCorrect(int argc, char*argv[]);
+
 bool readFileIntoString(const string& path, vector<char> &message, string type);
 
 int getFileSize(const string& path);
 
 bool fileExists(string path);
 
-string getType(string address);
 
-ResponseType getResponseType(HTTPHeaders header);
+
 
 

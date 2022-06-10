@@ -31,21 +31,27 @@ public:
 private:
     int port;
     string dir;
-    string separator = "\r\n\r\n";
-    int counter = 0;
+    string separator;
+    int separator_counter;
     int connected_sockfd;
+
 public:
     void serverLoop();
 
 private:
-    ssize_t receivePacket(int fd, u_int8_t *buffer, size_t buffer_size, unsigned int timeout);
+    ssize_t receivePacket(int fd, size_t buffer_size);
     HTTPHeaders readHeaders(char* recv_buffer);
     vector<char> packetBuilder(HTTPHeaders header);
-    bool timeout = true;
+    bool timeout;
+    u_int8_t *recv_buffer;
 
 private:
     int sockfd;
     struct sockaddr_in server_address;
     void socketSetup();
     void serverAddressSetup();
+
+private:
+    string getType(string address);
+    ResponseType getResponseType(HTTPHeaders header);
 };
